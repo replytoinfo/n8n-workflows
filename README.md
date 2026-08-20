@@ -24,9 +24,9 @@ node scripts/sanitize.mjs workflow.raw.json workflows/<name>/workflow.json
 The script removes each node's `credentials` object and `webhookId`, and the
 top-level `pinData`, `meta.instanceId`, `id`, `versionId`, `tags` and `active`
 fields. It then scans every remaining string for things that must not be
-published — Google Sheets document IDs, bearer tokens, API keys, email
-addresses, URLs with query strings and long bare numeric IDs such as Telegram
-chat IDs — and prints a warning for each one without changing it. Any warning
+published: Google Sheets document IDs, bearer tokens, API keys, email
+addresses, URLs with query strings, and long bare numeric IDs such as Telegram
+chat IDs. Each hit is reported as a warning and left untouched, and any warning
 exits with code 1, so a workflow with a leftover real value cannot be committed
 without a deliberate fix.
 
