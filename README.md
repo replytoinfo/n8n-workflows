@@ -3,7 +3,7 @@
 Production n8n workflows I have built and run, exported, sanitised and
 documented so they can be read without an n8n instance. Each workflow lives in
 its own folder with the exported JSON, a case study explaining the problem and
-the design decisions behind it, and screenshots of the canvas.
+the design decisions behind it, and a screenshot of the canvas.
 
 ## Workflows
 

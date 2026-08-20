@@ -4,6 +4,8 @@ Splits one master Google Sheet into many per-recipient sheets, driven by a confi
 
 This repository documents a refactor: the original production workflow solved the same problem with **95 nodes**, the rewritten one uses **11**.
 
+![Sheet Fan-Out canvas: read master sheet, build recipient config, loop over recipients, clear and append each target sheet, with a Telegram alert branch on write errors](assets/canvas-overview.png)
+
 ---
 
 ## The problem
