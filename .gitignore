@@ -1,0 +1,6 @@
+# raw n8n exports - never commit, they still contain credentials and real IDs
+*.raw.json
+
+node_modules/
+.env
+.DS_Store

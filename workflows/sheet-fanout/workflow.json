@@ -1,0 +1,439 @@
+{
+  "name": "Sheet Fan-Out (config-driven demo)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "55e6a925-2f7e-4173-80e8-2a7c46b7a6c5",
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -880,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_MASTER_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "id"
+        },
+        "options": {
+          "dataLocationOnSheet": {
+            "values": {
+              "rangeDefinition": "detectAutomatically"
+            }
+          }
+        }
+      },
+      "id": "7c03ade8-e264-4e01-ae46-ff4fde5a03d7",
+      "name": "Read Master Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -640,
+        304
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const junkValues = ['45767', '45772', '45718'];\n\nconst recipients = [\n  { key: 'operator-01', startMarker: 'operator-01 start', endMarker: 'operator-01 end', sheetId: 'REPLACE_WITH_SHEET_ID_01', sheetName: 'gid=0' },\n  { key: 'operator-02', startMarker: 'operator-02 start', endMarker: 'operator-02 end', sheetId: 'REPLACE_WITH_SHEET_ID_02', sheetName: 'gid=0' },\n  { key: 'operator-03', startMarker: 'operator-03 start', endMarker: 'operator-03 end', sheetId: 'REPLACE_WITH_SHEET_ID_03', sheetName: 'gid=0' }\n];\n\nreturn recipients.map(r => ({ json: { ...r, junkValues } }));"
+      },
+      "id": "05f6621c-d30e-4470-955b-63714d87d7bf",
+      "name": "Build Recipient Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "finished-at",
+              "name": "finishedAt",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "57671aee-482f-423f-9cef-f950d90fa2f9",
+      "name": "Done",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        112,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $input.first().json;\nconst rows = $('Read Master Sheet').all();\n\nconst norm = (v) => (v === null || v === undefined ? '' : String(v).toLowerCase().trim());\n\nconst start = rows.findIndex(r => norm(r.json.col_1).includes(norm(cfg.startMarker)));\nconst end = rows.findIndex((r, i) => i > start && norm(r.json.col_1).includes(norm(cfg.endMarker)));\n\nif (start === -1 || end === -1) {\n  return [{ json: { _skip: true, key: cfg.key } }];\n}\n\nconst junk = (cfg.junkValues || []).map(norm);\nconst block = rows.slice(start + 1, end);\n\nif (block.length === 0) {\n  return [{ json: { _skip: true, key: cfg.key } }];\n}\n\nreturn block.map(r => {\n  const out = {};\n  for (const field of Object.keys(r.json)) {\n    out[field] = junk.includes(norm(r.json[field])) ? '' : r.json[field];\n  }\n  return { json: out };\n});"
+      },
+      "id": "82d66f9d-aa71-4b9d-abd4-f0d9887b94b0",
+      "name": "Slice Recipient Block",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        128,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json._skip ? \"skip\" : \"ok\" }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "ok"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b86191f3-7bcd-4436-b265-c5b80b13b502",
+      "name": "Has Rows?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        352,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "clear",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $(\"Split By Recipient\").item.json.sheetId }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $(\"Split By Recipient\").item.json.sheetName }}",
+          "mode": "id"
+        }
+      },
+      "id": "7c19bed8-091c-4bb4-8865-5ff05b8779af",
+      "name": "Clear Target Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        608,
+        304
+      ],
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $(\"Split By Recipient\").item.json.sheetId }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $(\"Split By Recipient\").item.json.sheetName }}",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "ff348fdd-2880-462b-84fe-93e737f06998",
+      "name": "Append Rows",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        864,
+        304
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "92e84c6b-31c0-453d-b582-715aa18f6a24",
+      "name": "Split By Recipient",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -160,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const first = $input.first();\nconst err = first.json.error;\n\nconst message = typeof err === 'string' ? err : (err && err.message) || 'No description';\nconst nodeName = (err && err.node && err.node.name) || $prevNode.name || 'Unknown';\n\nreturn [{ json: { node_name: nodeName, error_message: message } }];"
+      },
+      "id": "e59f8500-e999-4c5d-9b2a-c0460e43aa05",
+      "name": "Format Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1024,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "<__PLACEHOLDER_VALUE__Telegram chat ID for alerts__>",
+        "text": "=Workflow \"{{ $workflow.name }}\" failed\nNode: {{ $json.node_name }}\nError: {{ $json.error_message }}\nTime: {{ $now.format(\"dd.MM.yyyy HH:mm:ss\") }}",
+        "additionalFields": {}
+      },
+      "id": "21ac3e00-a30a-47d0-b9f0-3c5097b84b00",
+      "name": "Telegram Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1408,
+        640
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "## 1. Config, not topology\nEvery recipient is described as data. Adding one is a single line in the array - the canvas does not change.",
+        "height": 200,
+        "width": 300,
+        "color": 4
+      },
+      "id": "7dc35a74-927e-423b-9993-dc760d10b059",
+      "name": "Sticky Note e12a8e4e",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -544,
+        -176
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 2. One generic pass\nThe loop walks the recipient list. Slicing, cleaning and writing all run through a single set of nodes.\n\nAn empty block emits a `_skip` item so the loop never stalls on zero results.",
+        "height": 300,
+        "width": 800,
+        "color": 3
+      },
+      "id": "78b6f248-c310-4f3f-bcaf-d93f9539ddd8",
+      "name": "Sticky Note aca037ae",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -192,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3. Failures do not break the loop\nA write error is routed to an alert, then back into the loop so the next recipient is still processed.",
+        "height": 200,
+        "width": 560,
+        "color": 5
+      },
+      "id": "8a22233f-2b7b-4a2c-b358-56988fae7780",
+      "name": "Sticky Note e7ffce3a",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        832,
+        -64
+      ]
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Read Master Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Master Sheet": {
+      "main": [
+        [
+          {
+            "node": "Build Recipient Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Recipient Config": {
+      "main": [
+        [
+          {
+            "node": "Split By Recipient",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split By Recipient": {
+      "main": [
+        [
+          {
+            "node": "Done",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Slice Recipient Block",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slice Recipient Block": {
+      "main": [
+        [
+          {
+            "node": "Has Rows?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Rows?": {
+      "main": [
+        [
+          {
+            "node": "Clear Target Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Split By Recipient",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Target Sheet": {
+      "main": [
+        [
+          {
+            "node": "Append Rows",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append Rows": {
+      "main": [
+        [
+          {
+            "node": "Split By Recipient",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Error": {
+      "main": [
+        [
+          {
+            "node": "Telegram Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Alert": {
+      "main": [
+        [
+          {
+            "node": "Split By Recipient",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "nodeGroups": []
+}
